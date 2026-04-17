@@ -1,0 +1,218 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id           String   @id @default(uuid())
+  name         String   @db.VarChar(255)
+  slug         String   @unique @db.VarChar(100)
+  type         String   @default("k12") @db.VarChar(50)
+  address      Json     @default("{}")
+  contactEmail String?  @map("contact_email") @db.VarChar(255)
+  contactPhone String?  @map("contact_phone") @db.VarChar(20)
+  dpoName      String?  @map("dpo_name") @db.VarChar(255)
+  dpoEmail     String?  @map("dpo_email") @db.VarChar(255)
+  settings     Json     @default("{}")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  users       User[]
+  students    Student[]
+  enrollments Enrollment[]
+  billings    Billing[]
+  schoolYears SchoolYear[]
+  auditLogs   AuditLog[]
+
+  @@map("organizations")
+}
+
+model SchoolYear {
+  id        String   @id @default(uuid())
+  orgId     String   @map("org_id")
+  name      String   @db.VarChar(20)
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime @map("end_date") @db.Date
+  isCurrent Boolean  @default(false) @map("is_current")
+  status    String   @default("active") @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  org         Organization @relation(fields: [orgId], references: [id])
+  enrollments Enrollment[]
+  billings    Billing[]
+
+  @@unique([orgId, name])
+  @@map("school_years")
+}
+
+model User {
+  id          String    @id @default(uuid())
+  orgId       String    @map("org_id")
+  supabaseId  String?   @unique @map("supabase_id") @db.VarChar(255)
+  email       String    @db.VarChar(255)
+  firstName   String    @map("first_name") @db.VarChar(100)
+  lastName    String    @map("last_name") @db.VarChar(100)
+  role        String    @db.VarChar(20)
+  status      String    @default("active") @db.VarChar(20)
+  lastLoginAt DateTime? @map("last_login_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  org                Organization  @relation(fields: [orgId], references: [id])
+  createdEnrollments Enrollment[]  @relation("EnrollmentCreatedBy")
+  approvedEnrollments Enrollment[] @relation("EnrollmentApprovedBy")
+  rejectedEnrollments Enrollment[] @relation("EnrollmentRejectedBy")
+  createdBillings    Billing[]
+  recordedPayments   Payment[]
+  auditLogs          AuditLog[]
+
+  @@unique([orgId, email])
+  @@map("users")
+}
+
+model Student {
+  id              String    @id @default(uuid())
+  orgId           String    @map("org_id")
+  lrn             String?   @db.VarChar(12)
+  firstName       String    @map("first_name") @db.VarChar(100)
+  middleName      String?   @map("middle_name") @db.VarChar(100)
+  lastName        String    @map("last_name") @db.VarChar(100)
+  dateOfBirth     DateTime  @map("date_of_birth") @db.Date
+  gender          String    @db.VarChar(10)
+  address         Json      @default("{}")
+  guardianName    String    @map("guardian_name") @db.VarChar(255)
+  guardianContact String    @map("guardian_contact") @db.VarChar(20)
+  guardianEmail   String?   @map("guardian_email") @db.VarChar(255)
+  gradeLevel      String    @map("grade_level") @db.VarChar(20)
+  section         String?   @db.VarChar(50)
+  status          String    @default("applicant") @db.VarChar(20)
+  metadata        Json      @default("{}")
+  isDeleted       Boolean   @default(false) @map("is_deleted")
+  deletedAt       DateTime? @map("deleted_at")
+  deletedReason   String?   @map("deleted_reason") @db.VarChar(255)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  org         Organization @relation(fields: [orgId], references: [id])
+  enrollments Enrollment[]
+  billings    Billing[]
+
+  @@unique([orgId, lrn])
+  @@index([orgId, status])
+  @@index([orgId, gradeLevel])
+  @@map("students")
+}
+
+model Enrollment {
+  id                  String    @id @default(uuid())
+  orgId               String    @map("org_id")
+  studentId           String?   @map("student_id")
+  schoolYearId        String    @map("school_year_id")
+  applicantData       Json      @map("applicant_data")
+  gradeLevel          String    @map("grade_level") @db.VarChar(20)
+  status              String    @default("draft") @db.VarChar(20)
+  dpaConsentGiven     Boolean   @map("dpa_consent_given")
+  dpaConsentTimestamp  DateTime? @map("dpa_consent_timestamp")
+  approvedBy          String?   @map("approved_by")
+  approvedAt          DateTime? @map("approved_at")
+  rejectedBy          String?   @map("rejected_by")
+  rejectedAt          DateTime? @map("rejected_at")
+  submittedAt         DateTime? @map("submitted_at")
+  createdBy           String    @map("created_by")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  org              Organization @relation(fields: [orgId], references: [id])
+  student          Student?     @relation(fields: [studentId], references: [id])
+  schoolYear       SchoolYear   @relation(fields: [schoolYearId], references: [id])
+  createdByUser    User         @relation("EnrollmentCreatedBy", fields: [createdBy], references: [id])
+  approvedByUser   User?        @relation("EnrollmentApprovedBy", fields: [approvedBy], references: [id])
+  rejectedByUser   User?        @relation("EnrollmentRejectedBy", fields: [rejectedBy], references: [id])
+
+  @@index([orgId, status])
+  @@index([orgId, schoolYearId])
+  @@map("enrollments")
+}
+
+model Billing {
+  id           String   @id @default(uuid())
+  orgId        String   @map("org_id")
+  studentId    String   @map("student_id")
+  schoolYearId String   @map("school_year_id")
+  totalAmount  Decimal  @map("total_amount") @db.Decimal(15, 2)
+  totalPaid    Decimal  @default(0) @map("total_paid") @db.Decimal(15, 2)
+  balance      Decimal  @default(0) @db.Decimal(15, 2)
+  dueDate      DateTime @map("due_date") @db.Date
+  status       String   @default("unpaid") @db.VarChar(20)
+  createdBy    String   @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  org          Organization @relation(fields: [orgId], references: [id])
+  student      Student      @relation(fields: [studentId], references: [id])
+  schoolYear   SchoolYear   @relation(fields: [schoolYearId], references: [id])
+  createdByUser User        @relation(fields: [createdBy], references: [id])
+  items        BillingItem[]
+  payments     Payment[]
+
+  @@unique([studentId, schoolYearId])
+  @@index([orgId, status])
+  @@map("billings")
+}
+
+model BillingItem {
+  id          String   @id @default(uuid())
+  billingId   String   @map("billing_id")
+  description String   @db.VarChar(255)
+  amount      Decimal  @db.Decimal(15, 2)
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  billing Billing @relation(fields: [billingId], references: [id], onDelete: Cascade)
+
+  @@map("billing_items")
+}
+
+model Payment {
+  id              String   @id @default(uuid())
+  billingId       String   @map("billing_id")
+  amount          Decimal  @db.Decimal(15, 2)
+  paymentDate     DateTime @map("payment_date") @db.Date
+  paymentMethod   String   @default("bank_transfer") @map("payment_method") @db.VarChar(30)
+  referenceNumber String?  @map("reference_number") @db.VarChar(100)
+  notes           String?
+  recordedBy      String   @map("recorded_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  billing      Billing @relation(fields: [billingId], references: [id])
+  recordedByUser User   @relation(fields: [recordedBy], references: [id])
+
+  @@index([billingId])
+  @@map("payments")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  orgId      String   @map("org_id")
+  userId     String?  @map("user_id")
+  action     String   @db.VarChar(20)
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   String   @map("entity_id")
+  oldValues  Json?    @map("old_values")
+  newValues  Json?    @map("new_values")
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  org  Organization @relation(fields: [orgId], references: [id])
+  user User?        @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([userId, createdAt])
+  @@index([orgId, createdAt])
+  @@map("audit_logs")
+}

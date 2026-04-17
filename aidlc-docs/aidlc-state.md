@@ -4,7 +4,7 @@
 - **Project Name**: EduCore ERP
 - **Project Type**: Greenfield
 - **Start Date**: 2025-04-17T13:30:00Z
-- **Current Stage**: CONSTRUCTION - Infrastructure Design
+- **Current Stage**: CONSTRUCTION - Code Generation
 
 ## Workspace State
 - **Existing Code**: No
@@ -31,7 +31,7 @@
 - [x] NFR Requirements
 - [x] NFR Design
 - [x] Infrastructure Design
-- [ ] Code Generation — EXECUTE (per-unit)
+- [x] Code Generation
 - [ ] Build and Test — EXECUTE
 
 ### 🟡 OPERATIONS PHASE
